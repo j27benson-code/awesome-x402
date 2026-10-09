@@ -154,9 +154,46 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
+      - name: Checkout deployment reporter
+        id: reporter-checkout
+        continue-on-error: true
+        uses: actions/checkout@v4
+
+      - name: Report deployment start
+        if: steps.reporter-checkout.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          CHANGE_MONITOR_ENV: github-pages
+          CHANGE_MONITOR_SERVICE: awesome-x402
+          DEPLOY_VERSION: ${{ github.sha }}
+          DEPLOY_ACTOR: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          DEPLOY_SOURCE_URI: https://github.com/j27benson-code/awesome-x402
+          CHANGE_MONITOR_STATE_FILE: ${{ runner.temp }}/change-monitor-deployment.name
+        run: |
+          bash scripts/report-deployment.sh bootstrap
+          bash scripts/report-deployment.sh start
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Report deployment finish
+        if: always() && steps.reporter-checkout.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          CHANGE_MONITOR_ENV: github-pages
+          CHANGE_MONITOR_SERVICE: awesome-x402
+          DEPLOY_VERSION: ${{ github.sha }}
+          DEPLOY_ACTOR: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          DEPLOY_SOURCE_URI: https://github.com/j27benson-code/awesome-x402
+          CHANGE_MONITOR_STATE_FILE: ${{ runner.temp }}/change-monitor-deployment.name
+          DEPLOY_OUTCOME: ${{ steps.deployment.outcome }}
+          DEPLOY_FAILURE_MESSAGE: GitHub Pages deploy ${{ steps.deployment.outcome }}
+        run: bash scripts/report-deployment.sh finish
         
   # Post-deployment job for notifications
   notify:
